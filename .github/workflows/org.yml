@@ -58,8 +58,17 @@ jobs:
           terraform_version: 1.15.8
           terraform_wrapper: false
 
+      # Order matters: the org + Control Tower landing zone first (the landing
+      # zone standup is long-running — see the README runbook), then AFT, then
+      # the registry.
       - name: Apply landing-zone
         working-directory: landing-zone
+        run: |
+          terraform init
+          terraform apply -auto-approve
+
+      - name: Apply AFT bootstrap
+        working-directory: aft/aft-bootstrap
         run: |
           terraform init
           terraform apply -auto-approve
