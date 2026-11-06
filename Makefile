@@ -23,6 +23,7 @@ init: ## one-time: prime the tflint plugin cache
 	@tflint --init
 
 verify-tf: ## terraform fmt/validate + test + tflint + checkov for every root
+	@mkdir -p "$(TF_PLUGIN_CACHE_DIR)"
 	@test -n "$(TF_DIRS)" || { echo "no terraform roots yet"; exit 0; }
 	@for d in $(TF_DIRS); do \
 	  echo "== terraform: $$d =="; \
