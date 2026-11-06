@@ -104,7 +104,7 @@ resource "aws_organizations_policy" "baseline" {
 }
 
 resource "aws_organizations_policy_attachment" "baseline" {
-  for_each  = toset([for k in local.scp_targets : k if contains(keys(local.ou_ids), k)])
+  for_each  = toset(local.scp_targets)
   policy_id = aws_organizations_policy.baseline.id
   target_id = local.ou_ids[each.value]
 }
