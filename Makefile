@@ -4,8 +4,9 @@
 SHELL := /bin/bash
 export TF_PLUGIN_CACHE_DIR ?= $(HOME)/.terraform.d/plugin-cache
 
-# All Terraform roots (any dir containing *.tf), excluding provider caches.
-TF_DIRS := $(shell find . -name '*.tf' -not -path '*/.terraform/*' -exec dirname {} \; 2>/dev/null | sort -u)
+# Terraform roots verified in the routine loop (any dir with *.tf), excluding
+# provider caches and the AFT bootstrap (a large remote module — see verify-aft).
+TF_DIRS := $(shell find . -name '*.tf' -not -path '*/.terraform/*' -not -path '*/aft-bootstrap/*' -exec dirname {} \; 2>/dev/null | sort -u)
 # All CloudFormation templates under account customizations.
 CFN_TEMPLATES := $(shell find aft -name 'template.yaml' 2>/dev/null)
 
@@ -28,9 +29,9 @@ verify-tf: ## terraform fmt/validate + test + tflint + checkov for every root
 	@for d in $(TF_DIRS); do \
 	  echo "== terraform: $$d =="; \
 	  ( cd $$d && terraform fmt -check && terraform init -backend=false >/dev/null && \
-	    terraform validate && terraform test && tflint ) || exit 1; \
+	    terraform validate && terraform test && tflint && \
+	    checkov -d . --quiet --compact --framework terraform ) || exit 1; \
 	done
-	@checkov -d . --quiet --compact --framework terraform || exit 1
 
 verify-cfn: ## cfn-lint + cfn-guard for every baseline template
 	@test -n "$(CFN_TEMPLATES)" || { echo "no cloudformation templates yet"; exit 0; }
@@ -46,3 +47,8 @@ verify-py: ## stdlib unittest for the registry upsert mapping
 
 verify-actions: ## actionlint for the workflows
 	@if [ -d .github/workflows ]; then actionlint; else echo "no workflows yet"; fi
+
+verify-aft: ## heavy: resolve the AFT module, then validate + fmt + tflint (the
+           ## root is only a module call, so there is nothing for checkov to scan)
+	@cd aft/aft-bootstrap && terraform init -backend=false && terraform validate && \
+	  terraform fmt -check && tflint
