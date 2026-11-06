@@ -40,8 +40,8 @@ verify-cfn: ## cfn-lint + cfn-guard for every baseline template
 	  [ -f "$$r" ] && { cfn-guard validate -d "$$t" -r "$$r" || exit 1; } || echo "(no guard rules yet)"; \
 	done
 
-verify-py: ## pytest for the registry upsert mapping
-	@if [ -d registry/tests ]; then ( cd registry && python3 -m pytest -q ); else echo "no python tests yet"; fi
+verify-py: ## stdlib unittest for the registry upsert mapping
+	@if [ -d registry/tests ]; then ( cd registry && python3 -m unittest discover -s tests -t . ); else echo "no python tests yet"; fi
 
 verify-actions: ## actionlint for the workflows
 	@if [ -d .github/workflows ]; then actionlint; else echo "no workflows yet"; fi
