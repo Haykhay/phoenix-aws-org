@@ -55,14 +55,16 @@ jobs:
       - name: Apply landing-zone against Floci
         working-directory: landing-zone
         run: |
-          terraform init -backend=false -input=false
+          rm -f backend.tf   # use local state for the ephemeral Floci apply
+          terraform init -input=false
           terraform apply -auto-approve -input=false -var floci=true
           terraform output
 
       - name: Apply registry against Floci
         working-directory: registry
         run: |
-          terraform init -backend=false -input=false
+          rm -f backend.tf   # use local state for the ephemeral Floci apply
+          terraform init -input=false
           terraform apply -auto-approve -input=false -var floci=true
           terraform output
 
