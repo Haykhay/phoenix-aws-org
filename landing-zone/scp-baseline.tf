@@ -6,6 +6,12 @@ locals {
 }
 
 resource "aws_organizations_policy" "baseline" {
+  # Floci's Organizations CreatePolicy rejects the freshly-created org
+  # (AWSOrganizationsNotInUseException), so the SCP is skipped on Floci. Its
+  # content is covered by terraform test and its enforcement is live-only.
+  # TODO: drop this gate once Floci fixes CreatePolicy membership.
+  count = var.floci ? 0 : 1
+
   name        = "security-baseline"
   description = "Baseline guardrails layered on Control Tower-managed OUs."
   type        = "SERVICE_CONTROL_POLICY"
@@ -104,7 +110,7 @@ resource "aws_organizations_policy" "baseline" {
 }
 
 resource "aws_organizations_policy_attachment" "baseline" {
-  for_each  = toset(local.scp_targets)
-  policy_id = aws_organizations_policy.baseline.id
+  for_each  = var.floci ? toset([]) : toset(local.scp_targets)
+  policy_id = aws_organizations_policy.baseline[0].id
   target_id = local.ou_ids[each.value]
 }
