@@ -8,6 +8,17 @@ variable "assume_role_arn" {
   default = "arn:aws:iam::000000000000:role/placeholder"
 }
 
+variable "floci" {
+  description = "Target a local Floci (endpoints + skip flags) instead of real AWS."
+  type        = bool
+  default     = false
+}
+
+variable "floci_endpoint" {
+  type    = string
+  default = "http://localhost:4566"
+}
+
 variable "scp_target_ou_keys" {
   description = "OU paths the baseline SCP attaches to. Defaults to every declared OU."
   type        = list(string)
