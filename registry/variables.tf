@@ -12,3 +12,14 @@ variable "table_name" {
   type    = string
   default = "phoenix-account-registry"
 }
+
+variable "floci" {
+  description = "Target a local Floci (endpoints + skip flags) instead of real AWS."
+  type        = bool
+  default     = false
+}
+
+variable "floci_endpoint" {
+  type    = string
+  default = "http://localhost:4566"
+}
