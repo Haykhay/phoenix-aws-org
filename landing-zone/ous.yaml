@@ -1,0 +1,10 @@
+# Declared managed-OU structure (de-branded). Control Tower creates and
+# governs these OUs; Terraform only resolves their ids. This file is the
+# source of truth for which OUs must exist as Control Tower-managed OUs.
+organizational_units:
+  sandbox: {}
+  shared-services: {}
+  infrastructure:
+    children: [networking, identity, tooling, monitoring, security]
+  workloads:
+    children: [nonprod, production]

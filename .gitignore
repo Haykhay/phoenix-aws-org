@@ -1,5 +1,6 @@
 # Terraform
 **/.terraform/*
+.terraform.lock.hcl
 *.tfstate
 *.tfstate.*
 crash.log
@@ -17,6 +18,10 @@ terraform.rc
 *.key
 .env
 *.auto.tfvars
+
+# Python
+__pycache__/
+*.pyc
 
 # OS
 .DS_Store

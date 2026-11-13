@@ -1,0 +1,103 @@
+name: org
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.8
+          terraform_wrapper: false
+
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: v0.65.0
+
+      - name: Install CloudFormation and Python linters
+        run: |
+          pip install --quiet cfn-lint checkov
+          cfn_guard_version=3.2.1
+          curl -sSL "https://github.com/aws-cloudformation/cloudformation-guard/releases/download/${cfn_guard_version}/cfn-guard-v3-ubuntu-latest.tar.gz" -o /tmp/cfn-guard.tgz
+          tar -xzf /tmp/cfn-guard.tgz -C /tmp
+          sudo install "/tmp/cfn-guard-v3-ubuntu-latest/cfn-guard" /usr/local/bin/cfn-guard
+
+      - name: tflint plugins
+        run: tflint --init
+
+      - name: Verify (offline checks)
+        run: make verify
+
+  apply:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: org-apply
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ORG_TERRAFORM_ROLE_ARN }}
+          aws-region: eu-west-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.8
+          terraform_wrapper: false
+
+      # Order matters: the org + Control Tower landing zone first (the landing
+      # zone standup is long-running — see the README runbook), then AFT, then
+      # the registry.
+      - name: Apply landing-zone
+        working-directory: landing-zone
+        run: |
+          terraform init
+          terraform apply -auto-approve
+
+      - name: Apply AFT bootstrap
+        working-directory: aft/aft-bootstrap
+        run: |
+          terraform init
+          terraform apply -auto-approve
+
+      - name: Apply registry
+        working-directory: registry
+        run: |
+          terraform init
+          terraform apply -auto-approve
+
+  register:
+    needs: apply
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ORG_TERRAFORM_ROLE_ARN }}
+          aws-region: eu-west-1
+
+      - name: Upsert registry from AFT outputs
+        run: |
+          python3 registry/upsert.py \
+            "${AFT_OUTPUT_JSON}" "${ACCOUNT_REQUEST_JSON}" phoenix-account-registry
+        env:
+          AFT_OUTPUT_JSON: ${{ runner.temp }}/aft-output.json
+          ACCOUNT_REQUEST_JSON: ${{ runner.temp }}/request.json

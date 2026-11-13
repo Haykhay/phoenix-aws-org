@@ -1,0 +1,12 @@
+{
+  "group": "research",
+  "account_id": "111111111111",
+  "organisation": "acme",
+  "state_bucket": "acme-tfstate-111111111111",
+  "state_region": "eu-west-1",
+  "management_account_id": "444444444444",
+  "base_domain": "example.com",
+  "apps_repo": "git@github.com:acme/phoenix-apps.git",
+  "ou": "sandbox",
+  "status": "ACTIVE"
+}

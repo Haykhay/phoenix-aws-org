@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Phoenix baseline: makes a freshly vended account Terraform-ready. Creates the
+  constant-named deploy roles, a GitHub OIDC provider, and the Terraform state
+  bucket (S3-native locking is a backend setting, not a resource). Run by AFT as
+  an account customization.
+
+Parameters:
+  Organisation:
+    Type: String
+    Description: Organisation slug, used in the state bucket name.
+    AllowedPattern: "^[a-z][a-z0-9-]{1,30}$"
+  GitHubRepo:
+    Type: String
+    Description: The AWS infra repo allowed to assume the roles, as owner/name.
+    AllowedPattern: "^[^/]+/[^/]+$"
+  TrustedBranch:
+    Type: String
+    Default: main
+    Description: Branch trusted for apply/destroy (Terraform-Role).
+
+Resources:
+  GitHubOidc:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+        - 1c58a3a8518e8759bf075b76b750d4f2df264fcd
+
+  TerraformRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: Terraform-Role
+      Description: Apply/destroy role, trusted only from the trusted branch.
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOidc
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepo}:ref:refs/heads/${TrustedBranch}
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  TerraformPlanRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: Terraform-Plan-Role
+      Description: Read-only role for pull-request plans.
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOidc
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepo}:pull_request
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/ReadOnlyAccess
+
+  StateBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub ${Organisation}-tfstate-${AWS::AccountId}
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+            BucketKeyEnabled: true
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+Outputs:
+  StateBucketName:
+    Description: Terraform state bucket for this account.
+    Value: !Ref StateBucket
+  TerraformRoleArn:
+    Description: Apply/destroy role ARN.
+    Value: !GetAtt TerraformRole.Arn
+  TerraformPlanRoleArn:
+    Description: Read-only plan role ARN.
+    Value: !GetAtt TerraformPlanRole.Arn

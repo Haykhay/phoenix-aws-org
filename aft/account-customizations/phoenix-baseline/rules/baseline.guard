@@ -1,0 +1,29 @@
+# Enforce the Global Constraints on the phoenix-baseline template.
+
+let iam_roles = Resources.*[ Type == 'AWS::IAM::Role' ]
+let buckets   = Resources.*[ Type == 'AWS::S3::Bucket' ]
+
+rule role_names_are_constant when %iam_roles !empty {
+  %iam_roles {
+    Properties.RoleName in ['Terraform-Role', 'Terraform-Plan-Role']
+  }
+}
+
+rule federated_trust_only when %iam_roles !empty {
+  # Every trust statement must use a Federated (OIDC) principal, which rules
+  # out a wildcard principal by construction.
+  %iam_roles {
+    Properties.AssumeRolePolicyDocument.Statement[*] {
+      Principal.Federated exists
+    }
+  }
+}
+
+rule state_bucket_hardened when %buckets !empty {
+  %buckets {
+    Properties.VersioningConfiguration.Status == 'Enabled'
+    Properties.PublicAccessBlockConfiguration.BlockPublicAcls == true
+    Properties.PublicAccessBlockConfiguration.RestrictPublicBuckets == true
+    Properties.BucketEncryption exists
+  }
+}
