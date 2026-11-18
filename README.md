@@ -2,8 +2,8 @@
 
 Account vending for Phoenix. This layer turns a committed account request into an
 **enrolled, Terraform-ready AWS account** whose ID the rest of the platform reads
-from a registry. It sits beneath `infrastructure/` (Layer 2) and `k8s-installs/`
-(Layer 3): its one job is to make an account *exist and be usable by Terraform*
+from a registry. It sits beneath `phoenix-aws` (Layers 1-2: networking and
+infrastructure) and `phoenix-k8s` (Layer 3, inside the clusters): its one job is to make an account *exist and be usable by Terraform*
 before any other layer runs.
 
 It is a **greenfield build**. The only thing assumed is an AWS account to serve
